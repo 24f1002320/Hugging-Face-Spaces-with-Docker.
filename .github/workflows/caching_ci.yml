@@ -1,0 +1,61 @@
+# .github/workflows/caching_ci.yml
+name: Dependency Caching CI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual trigger for easy initial testing
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+      
+      # ----------------------------------------------------
+      # STEP 1: Set up Python
+      # ----------------------------------------------------
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # ----------------------------------------------------
+      # STEP 2: The Caching Action (Restore/Save)
+      # ----------------------------------------------------
+      - name: Restore Python Cache
+        id: cache-step # IMPORTANT: We need this ID to check its output in the next step
+        uses: actions/cache@v4
+        with:
+          # Directory where Python dependencies are installed (e.g., pip cache)
+          path: ~/.cache/pip
+          # Primary key: Uses the requested static key + hash of dependencies
+          key: cache-2993d53-${{ hashFiles('requirements.txt') }}
+          # Restore keys: Used if the exact key doesn't match (for soft misses)
+          restore-keys: |
+            cache-2993d53-
+
+      # ----------------------------------------------------
+      # STEP 3: Prime Cache and Install Dependencies (The conditional step)
+      # ----------------------------------------------------
+      - name: prime-cache-2993d53
+        run: |
+          # The cache was a HIT (cache-hit == 'true'), so skip installation.
+          if [ "${{ steps.cache-step.outputs.cache-hit }}" == "true" ]; then
+            echo "✅ Cache hit for dependencies. Skipping pip install."
+          
+          # The cache was a MISS, so install dependencies to populate the cache.
+          else
+            echo "⏳ Cache miss. Installing dependencies to populate the cache..."
+            pip install -r requirements.txt
+          fi
+          
+      # ----------------------------------------------------
+      # STEP 4: Proceed with CI (Example)
+      # ----------------------------------------------------
+      - name: Verify Installation (or Run Tests)
+        run: |
+          echo "Dependencies are available. Job can proceed."
+          pip list
